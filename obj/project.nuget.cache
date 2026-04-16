@@ -1,10 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "y1bKVn6Vi6c=",
+  "dgSpecHash": "T2z5tdarmaI=",
   "success": true,
-  "projectFilePath": "C:\\Users\\kevin\\github\\cybersens\\C-Raylib\\C-Raylib.csproj",
+  "projectFilePath": "C:\\Users\\pruvo\\Documents\\GitHub\\C-Raylib\\C-Raylib.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\kevin\\.nuget\\packages\\raylib-cs\\7.0.2\\raylib-cs.7.0.2.nupkg.sha512"
+    "C:\\Users\\pruvo\\.nuget\\packages\\raylib-cs\\7.0.2\\raylib-cs.7.0.2.nupkg.sha512"
   ],
   "logs": []
 }

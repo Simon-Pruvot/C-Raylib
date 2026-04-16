@@ -54,6 +54,11 @@ class Program
         float animTimer = 0f;
         float animSpeed = 0.2f;
 
+        bool inMenu = true;
+        Rectangle playButton = new Rectangle(500, 500, 200, 60);
+        int menuFrame = 0;
+        float menuTimer = 0f;
+
         while (!Raylib.WindowShouldClose())
         {
             float deltaTime = Raylib.GetFrameTime();
@@ -61,6 +66,43 @@ class Program
             if (Raylib.IsKeyPressed(KeyboardKey.F11))
             {
                 Raylib.ToggleFullscreen();
+            }
+
+            if (inMenu)
+            {
+                menuTimer += deltaTime;
+                if (menuTimer >= animSpeed)
+                {
+                    menuFrame = (menuFrame + 1) % 2;
+                    menuTimer = 0f;
+                }
+
+                Vector2 mouse = Raylib.GetMousePosition();
+                bool hover = Raylib.CheckCollisionPointRec(mouse, playButton);
+
+                if (hover && Raylib.IsMouseButtonPressed(MouseButton.Left))
+                {
+                    inMenu = false;
+                }
+
+                Raylib.BeginDrawing();
+                Raylib.ClearBackground(Color.Black);
+
+                Texture2D menuTexture = runAnimRight[menuFrame];
+                Rectangle menuSource = new Rectangle(0, 0, menuTexture.Width, menuTexture.Height);
+                Rectangle menuDest = new Rectangle(540, 200, 120, 180);
+                Raylib.DrawTexturePro(menuTexture, menuSource, menuDest, Vector2.Zero, 0f, Color.White);
+
+                Raylib.DrawText("Yfight", 500, 100, 60, Color.White);
+
+                Color buttonColor;
+                if (hover) buttonColor = Color.Gray;
+                else buttonColor = Color.DarkGray;
+                Raylib.DrawRectangleRec(playButton, buttonColor);
+                Raylib.DrawText("Jouer", 555, 515, 30, Color.White);
+
+                Raylib.EndDrawing();
+                continue;
             }
 
             float moveX = 0;
