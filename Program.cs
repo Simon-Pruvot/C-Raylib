@@ -11,7 +11,7 @@ partial class Program
 
         Raylib.SetConfigFlags(ConfigFlags.ResizableWindow);
         Raylib.InitWindow(virtualWidth, virtualHeight, "Test Simon1");
-        Raylib.ToggleFullscreen();
+        
         Raylib.SetTargetFPS(120);
 
         RenderTexture2D renderTarget = Raylib.LoadRenderTexture(virtualWidth, virtualHeight);
@@ -38,13 +38,12 @@ partial class Program
         Texture2D shieldPotionTexture = Raylib.LoadTexture("imgs/shild-potion.png");
         Texture2D nucPotionTexture = Raylib.LoadTexture("imgs/nuc-potion.png");
         Texture2D shieldTexture = Raylib.LoadTexture("imgs/shild.png");
-
         Rectangle player1Start = new Rectangle(100, 500, 40, 60);
         Rectangle player2Start = new Rectangle(180, 500, 40, 60);
         Rectangle player1 = player1Start;
         Rectangle player2 = player2Start;
         float speed = 200f;
-
+//la map bébé
         Rectangle ground = new Rectangle(0, 750, 1200, 50);
         Rectangle plat1 = new Rectangle(0, 500, 200, 20);
         Rectangle plat2 = new Rectangle(250, 300, 400, 20);
@@ -287,9 +286,9 @@ partial class Program
                 ref facingRight2,
                 ref currentFrame2,
                 ref animTimer2,
-                KeyboardKey.Q,
+                KeyboardKey.A,
                 KeyboardKey.D,
-                KeyboardKey.Z,
+                KeyboardKey.W,
                 speed,
                 deltaTime,
                 gravity,
