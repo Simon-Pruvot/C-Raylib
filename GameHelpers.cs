@@ -54,10 +54,9 @@ partial class Program
         ref float shotTimer,
         List<Bullet> bullets,
         List<Pickup> pickups,
-        ref float pickupSpawnTimer,
         Random rng,
-        float pickupSpawnMin,
-        float pickupSpawnMax)
+        int virtualWidth,
+        float chestSize)
     {
         player1 = player1Start;
         player2 = player2Start;
@@ -83,7 +82,18 @@ partial class Program
         inventory[1] = ItemType.None;
         inventory[2] = ItemType.None;
         selectedSlot = 0;
-        pickupSpawnTimer = GetRandomRange(rng, pickupSpawnMin, pickupSpawnMax);
+
+        if (rng.NextDouble() < 0.5)
+        {
+            float spawnX = rng.Next(40, virtualWidth - 40);
+            pickups.Add(new Pickup
+            {
+                Type = ItemType.Chest,
+                Position = new Vector2(spawnX, -chestSize),
+                Velocity = Vector2.Zero,
+                IsOpened = false
+            });
+        }
     }
 
     static float GetRandomRange(Random rng, float min, float max)
@@ -186,6 +196,66 @@ partial class Program
         return new Vector2(
             (mouse.X - offset.X) / scale,
             (mouse.Y - offset.Y) / scale);
+    }
+
+    static void DrawHealthBars(int virtualWidth, int virtualHeight, int p1Health, int p2Health, int maxHealth, Texture2D crown)
+    {
+        int barW = 50;
+        int barH = (int)(virtualHeight * 0.70f);
+        int barY = (int)(virtualHeight * 0.15f);
+        int margin = 100;
+
+        int p1X = margin;
+        int p2X = virtualWidth - margin - barW;
+
+        float p1Ratio = p1Health / (float)maxHealth;
+        float p2Ratio = p2Health / (float)maxHealth;
+
+        Color dimRed = new Color(180, 80, 80, 255);
+        Color red = Color.Red;
+
+        // Bright red fills from the bottom; the lost HP shows as dim red on top.
+        Raylib.DrawRectangle(p1X, barY, barW, barH, dimRed);
+        int p1Fill = (int)(barH * p1Ratio);
+        Raylib.DrawRectangle(p1X, barY + (barH - p1Fill), barW, p1Fill, red);
+
+        Raylib.DrawRectangle(p2X, barY, barW, barH, dimRed);
+        int p2Fill = (int)(barH * p2Ratio);
+        Raylib.DrawRectangle(p2X, barY + (barH - p2Fill), barW, p2Fill, red);
+
+        int hpFontSize = 40;
+        int hpY = barY - hpFontSize - 10;
+
+        string p1Str = p1Health.ToString();
+        string p2Str = p2Health.ToString();
+
+        int p1TextW = Raylib.MeasureText(p1Str, hpFontSize);
+        int p2TextW = Raylib.MeasureText(p2Str, hpFontSize);
+
+        int p1TextX = p1X + (barW - p1TextW) / 2;
+        int p2TextX = p2X + (barW - p2TextW) / 2;
+
+        Raylib.DrawText(p1Str, p1TextX, hpY, hpFontSize, Color.LightGray);
+        Raylib.DrawText(p2Str, p2TextX, hpY, hpFontSize, Color.LightGray);
+
+        // Crown above the leading player (or both if tied)
+        int crownSize = 60;
+        int crownY = hpY - crownSize - 4;
+        Rectangle crownSrc = new Rectangle(0, 0, crown.Width, crown.Height);
+
+        bool p1Leading = p1Health >= p2Health;
+        bool p2Leading = p2Health >= p1Health;
+
+        if (p1Leading)
+        {
+            int crownX = p1X + (barW - crownSize) / 2;
+            Raylib.DrawTexturePro(crown, crownSrc, new Rectangle(crownX, crownY, crownSize, crownSize), Vector2.Zero, 0f, Color.White);
+        }
+        if (p2Leading)
+        {
+            int crownX = p2X + (barW - crownSize) / 2;
+            Raylib.DrawTexturePro(crown, crownSrc, new Rectangle(crownX, crownY, crownSize, crownSize), Vector2.Zero, 0f, Color.White);
+        }
     }
 
     static void DrawToScreen(RenderTexture2D target, int virtualWidth, int virtualHeight, float scale, Vector2 offset)

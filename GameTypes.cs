@@ -15,7 +15,8 @@ partial class Program
         Gun,
         HealPotion,
         ShieldPotion,
-        NucPotion
+        NucPotion,
+        Chest
     }
 
     struct Bullet
@@ -31,5 +32,6 @@ partial class Program
         public ItemType Type;
         public Vector2 Position;
         public Vector2 Velocity;
+        public bool IsOpened;
     }
 }

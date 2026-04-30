@@ -38,6 +38,9 @@ partial class Program
         Texture2D shieldPotionTexture = Raylib.LoadTexture("imgs/shild-potion.png");
         Texture2D nucPotionTexture = Raylib.LoadTexture("imgs/nuc-potion.png");
         Texture2D shieldTexture = Raylib.LoadTexture("imgs/shild.png");
+        Texture2D crownTexture = Raylib.LoadTexture("imgs/crown.png");
+        Texture2D chestClosedTexture = Raylib.LoadTexture("imgs/coffre-fermé-1.png");
+        Texture2D chestOpenTexture = Raylib.LoadTexture("imgs/coffre-ouvert-1.png");
         Rectangle player1Start = new Rectangle(100, 500, 40, 60);
         Rectangle player2Start = new Rectangle(180, 500, 40, 60);
         Rectangle player1 = player1Start;
@@ -89,11 +92,8 @@ partial class Program
         float bulletLife = 2f;
         List<Bullet> bullets = new List<Bullet>();
         Random rng = new Random();
-        float pickupSize = 32f;
+        float chestSize = 48f;
         float pickupGravity = 600f;
-        float pickupSpawnMin = 8f;
-        float pickupSpawnMax = 12f;
-        float pickupSpawnTimer = GetRandomRange(rng, pickupSpawnMin, pickupSpawnMax);
         List<Pickup> pickups = new List<Pickup>();
         ItemType[] inventory = new ItemType[3] { ItemType.Gun, ItemType.None, ItemType.None };
         int selectedSlot = 0;
@@ -160,10 +160,9 @@ partial class Program
                         ref shotTimer,
                         bullets,
                         pickups,
-                        ref pickupSpawnTimer,
                         rng,
-                        pickupSpawnMin,
-                        pickupSpawnMax);
+                        virtualWidth,
+                        chestSize);
                     winnerText = string.Empty;
                     gameState = GameState.Playing;
                 }
@@ -222,10 +221,9 @@ partial class Program
                         ref shotTimer,
                         bullets,
                         pickups,
-                        ref pickupSpawnTimer,
                         rng,
-                        pickupSpawnMin,
-                        pickupSpawnMax);
+                        virtualWidth,
+                        chestSize);
                     winnerText = string.Empty;
                     gameState = GameState.Playing;
                 }
@@ -305,27 +303,12 @@ partial class Program
             if (Raylib.IsKeyPressed(KeyboardKey.Two)) selectedSlot = 1;
             if (Raylib.IsKeyPressed(KeyboardKey.Three)) selectedSlot = 2;
 
-            pickupSpawnTimer -= deltaTime;
-            if (pickupSpawnTimer <= 0f)
-            {
-                ItemType[] dropTypes = { ItemType.HealPotion, ItemType.ShieldPotion, ItemType.NucPotion };
-                ItemType dropType = dropTypes[rng.Next(dropTypes.Length)];
-                float spawnX = rng.Next(40, virtualWidth - 40);
-                pickups.Add(new Pickup
-                {
-                    Type = dropType,
-                    Position = new Vector2(spawnX, -pickupSize),
-                    Velocity = Vector2.Zero
-                });
-                pickupSpawnTimer = GetRandomRange(rng, pickupSpawnMin, pickupSpawnMax);
-            }
-
             for (int i = pickups.Count - 1; i >= 0; i--)
             {
                 Pickup pickup = pickups[i];
                 pickup.Velocity = new Vector2(pickup.Velocity.X, pickup.Velocity.Y + pickupGravity * deltaTime);
                 Vector2 nextPos = pickup.Position + pickup.Velocity * deltaTime;
-                Rectangle nextRect = new Rectangle(nextPos.X, nextPos.Y, pickupSize, pickupSize);
+                Rectangle nextRect = new Rectangle(nextPos.X, nextPos.Y, chestSize, chestSize);
 
                 if (pickup.Velocity.Y > 0f)
                 {
@@ -333,7 +316,7 @@ partial class Program
                     {
                         if (Raylib.CheckCollisionRecs(nextRect, block))
                         {
-                            nextPos.Y = block.Y - pickupSize;
+                            nextPos.Y = block.Y - chestSize;
                             pickup.Velocity = Vector2.Zero;
                             break;
                         }
@@ -341,7 +324,7 @@ partial class Program
                 }
 
                 pickup.Position = nextPos;
-                if (pickup.Position.Y > virtualHeight + pickupSize)
+                if (pickup.Position.Y > virtualHeight + chestSize)
                 {
                     pickups.RemoveAt(i);
                 }
@@ -355,17 +338,22 @@ partial class Program
             {
                 for (int i = pickups.Count - 1; i >= 0; i--)
                 {
-                    Rectangle pickupRect = new Rectangle(pickups[i].Position.X, pickups[i].Position.Y, pickupSize, pickupSize);
-                    if (Raylib.CheckCollisionRecs(player1, pickupRect))
+                    Pickup pk = pickups[i];
+                    Rectangle pickupRect = new Rectangle(pk.Position.X, pk.Position.Y, chestSize, chestSize);
+                    if (!Raylib.CheckCollisionRecs(player1, pickupRect)) continue;
+
+                    if (pk.Type == ItemType.Chest && !pk.IsOpened)
                     {
                         int slotToFill = inventory[1] == ItemType.None ? 1 : inventory[2] == ItemType.None ? 2 : -1;
                         if (slotToFill != -1)
                         {
-                            inventory[slotToFill] = pickups[i].Type;
-                            pickups.RemoveAt(i);
+                            ItemType[] dropTypes = { ItemType.HealPotion, ItemType.ShieldPotion, ItemType.NucPotion };
+                            inventory[slotToFill] = dropTypes[rng.Next(dropTypes.Length)];
+                            pk.IsOpened = true;
+                            pickups[i] = pk;
                         }
-                        break;
                     }
+                    break;
                 }
             }
 
@@ -480,9 +468,11 @@ partial class Program
 
             foreach (Pickup pickup in pickups)
             {
-                Texture2D pickupTexture = GetItemTexture(pickup.Type, healPotionTexture, shieldPotionTexture, nucPotionTexture);
+                Texture2D pickupTexture = pickup.Type == ItemType.Chest
+                    ? (pickup.IsOpened ? chestOpenTexture : chestClosedTexture)
+                    : GetItemTexture(pickup.Type, healPotionTexture, shieldPotionTexture, nucPotionTexture);
                 Rectangle pickupSource = new Rectangle(0, 0, pickupTexture.Width, pickupTexture.Height);
-                Rectangle pickupDest = new Rectangle(pickup.Position.X, pickup.Position.Y, pickupSize, pickupSize);
+                Rectangle pickupDest = new Rectangle(pickup.Position.X, pickup.Position.Y, chestSize, chestSize);
                 Raylib.DrawTexturePro(pickupTexture, pickupSource, pickupDest, Vector2.Zero, 0f, Color.White);
             }
 
@@ -522,19 +512,7 @@ partial class Program
                 Raylib.DrawCircleV(bullet.Position, bullet.Radius, Color.Yellow);
             }
 
-            int barWidth = 200;
-            int barHeight = 20;
-            float p1Ratio = player1Health / (float)maxHealth;
-            float p2Ratio = player2Health / (float)maxHealth;
-
-            Raylib.DrawRectangle(10, 40, barWidth, barHeight, Color.DarkGray);
-            Raylib.DrawRectangle(10, 40, (int)(barWidth * p1Ratio), barHeight, Color.Green);
-            Raylib.DrawText($"P1 HP: {player1Health}", 10, 65, 20, Color.White);
-
-            int p2BarX = virtualWidth - barWidth - 10;
-            Raylib.DrawRectangle(p2BarX, 40, barWidth, barHeight, Color.DarkGray);
-            Raylib.DrawRectangle(p2BarX, 40, (int)(barWidth * p2Ratio), barHeight, Color.Green);
-            Raylib.DrawText($"P2 HP: {player2Health}", p2BarX, 65, 20, Color.White);
+            DrawHealthBars(virtualWidth, virtualHeight, player1Health, player2Health, maxHealth, crownTexture);
 
             DrawInventory(inventory, selectedSlot, healPotionTexture, shieldPotionTexture, nucPotionTexture, virtualHeight);
 
@@ -554,6 +532,9 @@ partial class Program
         Raylib.UnloadTexture(shieldPotionTexture);
         Raylib.UnloadTexture(nucPotionTexture);
         Raylib.UnloadTexture(shieldTexture);
+        Raylib.UnloadTexture(crownTexture);
+        Raylib.UnloadTexture(chestClosedTexture);
+        Raylib.UnloadTexture(chestOpenTexture);
         Raylib.UnloadRenderTexture(renderTarget);
 
         Raylib.CloseWindow();
