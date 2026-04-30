@@ -41,25 +41,11 @@ partial class Program
         Texture2D crownTexture = Raylib.LoadTexture("imgs/crown.png");
         Texture2D chestClosedTexture = Raylib.LoadTexture("imgs/coffre-fermé-1.png");
         Texture2D chestOpenTexture = Raylib.LoadTexture("imgs/coffre-ouvert-1.png");
-        Rectangle player1Start = new Rectangle(100, 500, 40, 60);
-        Rectangle player2Start = new Rectangle(180, 500, 40, 60);
+        int currentMap = 0;
+        LoadMap(currentMap, out Rectangle[] solidBlocks, out Rectangle[] ladders, out Rectangle player1Start, out Rectangle player2Start);
         Rectangle player1 = player1Start;
         Rectangle player2 = player2Start;
         float speed = 200f;
-//la map bébé
-        Rectangle ground = new Rectangle(0, 750, 1200, 50);
-        Rectangle plat1 = new Rectangle(0, 500, 200, 20);
-        Rectangle plat2 = new Rectangle(250, 300, 400, 20);
-        Rectangle plat3 = new Rectangle(700, 600, 400, 20);
-
-        Rectangle b1 = new Rectangle(700, 300, 50, 50);
-        Rectangle b2 = new Rectangle(850, 350, 50, 50);
-        Rectangle b3 = new Rectangle(1000, 500, 50, 50);
-        Rectangle b4 = new Rectangle(1100, 650, 50, 50);
-
-        Rectangle[] solidBlocks = { ground, plat1, plat2, plat3, b1, b2, b3, b4 };
-
-        Rectangle ladder = new Rectangle(850, 600, 50, 150);
 
         float yVel1 = 0;
         float yVel2 = 0;
@@ -133,6 +119,8 @@ partial class Program
 
                 if (hoverPlay && Raylib.IsMouseButtonPressed(MouseButton.Left))
                 {
+                    currentMap = 0;
+                    LoadMap(currentMap, out solidBlocks, out ladders, out player1Start, out player2Start);
                     ResetGame(
                         ref player1,
                         ref player2,
@@ -194,6 +182,8 @@ partial class Program
 
                 if (hoverReplay && Raylib.IsMouseButtonPressed(MouseButton.Left))
                 {
+                    currentMap = (currentMap + 1) % 2;
+                    LoadMap(currentMap, out solidBlocks, out ladders, out player1Start, out player2Start);
                     ResetGame(
                         ref player1,
                         ref player2,
@@ -270,7 +260,7 @@ partial class Program
                 jump,
                 climbSpeed,
                 animSpeed,
-                ladder,
+                ladders,
                 solidBlocks,
                 runAnimRight,
                 runAnimLeft,
@@ -293,7 +283,7 @@ partial class Program
                 jump,
                 climbSpeed,
                 animSpeed,
-                ladder,
+                ladders,
                 solidBlocks,
                 runAnimRight,
                 runAnimLeft,
@@ -454,17 +444,16 @@ partial class Program
             Raylib.BeginTextureMode(renderTarget);
             Raylib.ClearBackground(Color.Black);
 
-            Raylib.DrawRectangleRec(ground, Color.White);
-            Raylib.DrawRectangleRec(plat1, Color.White);
-            Raylib.DrawRectangleRec(plat2, Color.White);
-            Raylib.DrawRectangleRec(plat3, Color.White);
+            foreach (Rectangle block in solidBlocks)
+            {
+                if (block.Y >= virtualHeight) continue; // skip off-screen safety floor
+                Raylib.DrawRectangleRec(block, Color.White);
+            }
 
-            Raylib.DrawRectangleRec(b1, Color.White);
-            Raylib.DrawRectangleRec(b2, Color.White);
-            Raylib.DrawRectangleRec(b3, Color.White);
-            Raylib.DrawRectangleRec(b4, Color.White);
-
-            Raylib.DrawRectangleRec(ladder, Color.Gray);
+            foreach (Rectangle l in ladders)
+            {
+                Raylib.DrawRectangleRec(l, Color.Gray);
+            }
 
             foreach (Pickup pickup in pickups)
             {

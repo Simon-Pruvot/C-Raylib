@@ -198,6 +198,52 @@ partial class Program
             (mouse.Y - offset.Y) / scale);
     }
 
+    static void LoadMap(
+        int mapIndex,
+        out Rectangle[] solidBlocks,
+        out Rectangle[] ladders,
+        out Rectangle player1Start,
+        out Rectangle player2Start)
+    {
+        if (mapIndex == 0)
+        {
+            Rectangle ground = new Rectangle(0, 750, 1200, 50);
+            Rectangle plat1 = new Rectangle(0, 500, 200, 20);
+            Rectangle plat2 = new Rectangle(250, 300, 400, 20);
+            Rectangle plat3 = new Rectangle(700, 600, 400, 20);
+            Rectangle b1 = new Rectangle(700, 300, 50, 50);
+            Rectangle b2 = new Rectangle(850, 350, 50, 50);
+            Rectangle b3 = new Rectangle(1000, 500, 50, 50);
+            Rectangle b4 = new Rectangle(1100, 650, 50, 50);
+
+            solidBlocks = new[] { ground, plat1, plat2, plat3, b1, b2, b3, b4 };
+            ladders = new[] { new Rectangle(850, 600, 50, 150) };
+            player1Start = new Rectangle(100, 500, 40, 60);
+            player2Start = new Rectangle(180, 500, 40, 60);
+        }
+        else
+        {
+            // Off-screen safety floor so players in pits don't fall forever.
+            Rectangle safetyFloor = new Rectangle(0, 800, 1200, 100);
+            Rectangle bottomCenter = new Rectangle(435, 765, 215, 35);
+            Rectangle topPlat = new Rectangle(325, 180, 465, 20);
+            Rectangle midPlat = new Rectangle(240, 440, 220, 20);
+            Rectangle leftPlat = new Rectangle(0, 470, 210, 20);
+            Rectangle rightPlat = new Rectangle(730, 660, 470, 20);
+            Rectangle block1 = new Rectangle(535, 580, 50, 40);
+            Rectangle block2 = new Rectangle(380, 660, 50, 30);
+
+            solidBlocks = new[] { safetyFloor, bottomCenter, topPlat, midPlat, leftPlat, rightPlat, block1, block2 };
+            ladders = new[]
+            {
+                new Rectangle(635, 0, 50, 180),
+                new Rectangle(370, 200, 50, 240)
+            };
+            player1Start = new Rectangle(50, 410, 40, 60);
+            player2Start = new Rectangle(1000, 600, 40, 60);
+        }
+    }
+
     static void DrawHealthBars(int virtualWidth, int virtualHeight, int p1Health, int p2Health, int maxHealth, Texture2D crown)
     {
         int barW = 50;

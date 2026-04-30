@@ -20,7 +20,7 @@ partial class Program
         float jump,
         float climbSpeed,
         float animSpeed,
-        Rectangle ladder,
+        Rectangle[] ladders,
         Rectangle[] solidBlocks,
         Texture2D[] runAnimRight,
         Texture2D[] runAnimLeft,
@@ -50,7 +50,15 @@ partial class Program
             }
         }
 
-        onLadder = Raylib.CheckCollisionRecs(player, ladder);
+        onLadder = false;
+        foreach (Rectangle l in ladders)
+        {
+            if (Raylib.CheckCollisionRecs(player, l))
+            {
+                onLadder = true;
+                break;
+            }
+        }
 
         if (onLadder && Raylib.IsKeyDown(upKey))
         {
