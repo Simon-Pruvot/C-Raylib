@@ -5,9 +5,13 @@ partial class Program
     enum GameState
     {
         Menu,
+        Lobby,
+        Connecting,
         Playing,
         End
     }
+
+    enum NetworkMode { Local, Host, Client }
 
     enum ItemType
     {
@@ -17,6 +21,19 @@ partial class Program
         ShieldPotion,
         NucPotion,
         Chest
+    }
+
+    struct PlayerInput
+    {
+        public bool MoveLeft;
+        public bool MoveRight;
+        public bool ClimbUp;
+        public bool JumpPressed;
+        public bool ActionPressed;   // left click: shoot or use item
+        public bool PickupPressed;
+        public float MouseX;
+        public float MouseY;
+        public int SelectedSlot;
     }
 
     struct Bullet

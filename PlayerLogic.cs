@@ -11,9 +11,7 @@ partial class Program
         ref bool facingRight,
         ref int currentFrame,
         ref float animTimer,
-        KeyboardKey leftKey,
-        KeyboardKey rightKey,
-        KeyboardKey upKey,
+        PlayerInput input,
         float speed,
         float deltaTime,
         float gravity,
@@ -27,8 +25,8 @@ partial class Program
         Texture2D[] climbAnim)
     {
         float moveX = 0;
-        if (Raylib.IsKeyDown(leftKey)) moveX -= speed * deltaTime;
-        if (Raylib.IsKeyDown(rightKey)) moveX += speed * deltaTime;
+        if (input.MoveLeft)  moveX -= speed * deltaTime;
+        if (input.MoveRight) moveX += speed * deltaTime;
 
         if (moveX > 0) facingRight = true;
         else if (moveX < 0) facingRight = false;
@@ -39,38 +37,23 @@ partial class Program
         {
             if (Raylib.CheckCollisionRecs(player, block) && !onLadder)
             {
-                if (moveX > 0)
-                {
-                    player.X = block.X - player.Width;
-                }
-                else if (moveX < 0)
-                {
-                    player.X = block.X + block.Width;
-                }
+                if (moveX > 0)      player.X = block.X - player.Width;
+                else if (moveX < 0) player.X = block.X + block.Width;
             }
         }
 
         onLadder = false;
         foreach (Rectangle l in ladders)
         {
-            if (Raylib.CheckCollisionRecs(player, l))
-            {
-                onLadder = true;
-                break;
-            }
+            if (Raylib.CheckCollisionRecs(player, l)) { onLadder = true; break; }
         }
 
-        if (onLadder && Raylib.IsKeyDown(upKey))
-        {
+        if (onLadder && input.ClimbUp)
             yVel = climbSpeed;
-        }
         else
-        {
             yVel += gravity * deltaTime;
-        }
 
         player.Y += yVel * deltaTime;
-
         onGround = false;
 
         foreach (Rectangle block in solidBlocks)
@@ -91,20 +74,16 @@ partial class Program
             }
         }
 
-        if (Raylib.IsKeyPressed(upKey) && onGround && !onLadder)
-        {
+        if (input.JumpPressed && onGround && !onLadder)
             yVel = jump;
-        }
 
         animTimer += deltaTime;
-        Texture2D currentTexture;
         Texture2D[] currentAnimArray = facingRight ? runAnimRight : runAnimLeft;
 
         if (onLadder)
         {
             currentFrame %= climbAnim.Length;
-
-            if (Raylib.IsKeyDown(upKey))
+            if (input.ClimbUp)
             {
                 if (animTimer >= animSpeed)
                 {
@@ -116,26 +95,23 @@ partial class Program
             {
                 currentFrame = 0;
             }
-            currentTexture = climbAnim[currentFrame];
+            return climbAnim[currentFrame];
         }
         else if (moveX != 0 && onGround)
         {
             currentFrame %= currentAnimArray.Length;
-
             if (animTimer >= animSpeed)
             {
                 currentFrame = (currentFrame + 1) % currentAnimArray.Length;
                 animTimer = 0f;
             }
-            currentTexture = currentAnimArray[currentFrame];
+            return currentAnimArray[currentFrame];
         }
         else
         {
             currentFrame = 0;
-            currentTexture = currentAnimArray[0];
+            return currentAnimArray[0];
         }
-
-        return currentTexture;
     }
 
     static bool PointInRect(Vector2 point, Rectangle rect)

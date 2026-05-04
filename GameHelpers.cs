@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Sockets;
 using System.Numerics;
 using Raylib_cs;
 
@@ -11,20 +13,17 @@ partial class Program
         Rectangle menuSource = new Rectangle(0, 0, menuTexture.Width, menuTexture.Height);
         Rectangle menuDest = new Rectangle(540, 200, 120, 180);
         Raylib.DrawTexturePro(menuTexture, menuSource, menuDest, Vector2.Zero, 0f, Color.White);
-
         Raylib.DrawText("Yfight", 500, 100, 60, Color.White);
     }
 
     static void DrawButton(Rectangle button, string text, Vector2 mousePos)
     {
         bool hover = Raylib.CheckCollisionPointRec(mousePos, button);
-        Color buttonColor = hover ? Color.Gray : Color.DarkGray;
-        Raylib.DrawRectangleRec(button, buttonColor);
-
-        int textWidth = Raylib.MeasureText(text, 30);
+        Raylib.DrawRectangleRec(button, hover ? Color.Gray : Color.DarkGray);
+        int textWidth = Raylib.MeasureText(text, 28);
         int textX = (int)(button.X + (button.Width - textWidth) / 2f);
-        int textY = (int)(button.Y + (button.Height - 30) / 2f);
-        Raylib.DrawText(text, textX, textY, 30, Color.White);
+        int textY = (int)(button.Y + (button.Height - 28) / 2f);
+        Raylib.DrawText(text, textX, textY, 28, Color.White);
     }
 
     static void ResetGame(
@@ -60,20 +59,13 @@ partial class Program
     {
         player1 = player1Start;
         player2 = player2Start;
-        yVel1 = 0f;
-        yVel2 = 0f;
-        onGround1 = false;
-        onGround2 = false;
-        onLadder1 = false;
-        onLadder2 = false;
-        facingRight1 = true;
-        facingRight2 = true;
-        currentFrame1 = 0;
-        currentFrame2 = 0;
-        animTimer1 = 0f;
-        animTimer2 = 0f;
-        player1Health = maxHealth;
-        player2Health = maxHealth;
+        yVel1 = 0f; yVel2 = 0f;
+        onGround1 = false; onGround2 = false;
+        onLadder1 = false; onLadder2 = false;
+        facingRight1 = true; facingRight2 = true;
+        currentFrame1 = 0; currentFrame2 = 0;
+        animTimer1 = 0f; animTimer2 = 0f;
+        player1Health = maxHealth; player2Health = maxHealth;
         player1Shield = 0;
         shotTimer = 0f;
         bullets.Clear();
@@ -96,19 +88,14 @@ partial class Program
         }
     }
 
-    static float GetRandomRange(Random rng, float min, float max)
-    {
-        return min + (float)rng.NextDouble() * (max - min);
-    }
-
     static Texture2D GetItemTexture(ItemType item, Texture2D heal, Texture2D shield, Texture2D nuc)
     {
         return item switch
         {
-            ItemType.HealPotion => heal,
+            ItemType.HealPotion   => heal,
             ItemType.ShieldPotion => shield,
-            ItemType.NucPotion => nuc,
-            _ => heal
+            ItemType.NucPotion    => nuc,
+            _                     => heal
         };
     }
 
@@ -122,15 +109,9 @@ partial class Program
     {
         switch (item)
         {
-            case ItemType.HealPotion:
-                playerHealth = Math.Min(maxHealth, playerHealth + 50);
-                break;
-            case ItemType.ShieldPotion:
-                playerShield = maxShield;
-                break;
-            case ItemType.NucPotion:
-                opponentHealth = 0;
-                break;
+            case ItemType.HealPotion:   playerHealth = Math.Min(maxHealth, playerHealth + 50); break;
+            case ItemType.ShieldPotion: playerShield = maxShield; break;
+            case ItemType.NucPotion:    opponentHealth = 0; break;
         }
     }
 
@@ -142,60 +123,40 @@ partial class Program
         Texture2D nucTexture,
         int screenHeight)
     {
-        int slotSize = 50;
-        int slotPadding = 10;
-        int invX = 10;
-        int invY = screenHeight - slotSize - 10;
+        int slotSize = 50, slotPadding = 10;
+        int invX = 10, invY = screenHeight - slotSize - 10;
 
         for (int i = 0; i < inventory.Length; i++)
         {
             Rectangle slotRect = new Rectangle(invX + i * (slotSize + slotPadding), invY, slotSize, slotSize);
             Raylib.DrawRectangleRec(slotRect, Color.DarkGray);
+            Raylib.DrawRectangleLinesEx(slotRect, i == selectedSlot ? 3f : 2f, i == selectedSlot ? Color.Yellow : Color.Gray);
+            Raylib.DrawText((i + 1).ToString(), (int)slotRect.X + 4, (int)slotRect.Y + 2, 16, Color.White);
 
-            if (i == selectedSlot)
-            {
-                Raylib.DrawRectangleLinesEx(slotRect, 3f, Color.Yellow);
-            }
-            else
-            {
-                Raylib.DrawRectangleLinesEx(slotRect, 2f, Color.Gray);
-            }
-
-            string number = (i + 1).ToString();
-            Raylib.DrawText(number, (int)slotRect.X + 4, (int)slotRect.Y + 2, 16, Color.White);
-
-            if (i == 0)
-            {
-                Raylib.DrawText("*", (int)slotRect.X + 20, (int)slotRect.Y + 14, 24, Color.White);
-                continue;
-            }
+            if (i == 0) { Raylib.DrawText("*", (int)slotRect.X + 20, (int)slotRect.Y + 14, 24, Color.White); continue; }
 
             if (inventory[i] != ItemType.None)
             {
                 Texture2D itemTexture = GetItemTexture(inventory[i], healTexture, shieldTexture, nucTexture);
-                Rectangle itemSource = new Rectangle(0, 0, itemTexture.Width, itemTexture.Height);
-                Rectangle itemDest = new Rectangle(slotRect.X + 9, slotRect.Y + 9, 32, 32);
-                Raylib.DrawTexturePro(itemTexture, itemSource, itemDest, Vector2.Zero, 0f, Color.White);
+                Raylib.DrawTexturePro(itemTexture,
+                    new Rectangle(0, 0, itemTexture.Width, itemTexture.Height),
+                    new Rectangle(slotRect.X + 9, slotRect.Y + 9, 32, 32),
+                    Vector2.Zero, 0f, Color.White);
             }
         }
     }
 
     static void GetRenderScale(int virtualWidth, int virtualHeight, out float scale, out Vector2 offset)
     {
-        int windowWidth = Raylib.GetScreenWidth();
-        int windowHeight = Raylib.GetScreenHeight();
-        scale = MathF.Min(windowWidth / (float)virtualWidth, windowHeight / (float)virtualHeight);
-        offset = new Vector2(
-            (windowWidth - virtualWidth * scale) / 2f,
-            (windowHeight - virtualHeight * scale) / 2f);
+        int w = Raylib.GetScreenWidth(), h = Raylib.GetScreenHeight();
+        scale = MathF.Min(w / (float)virtualWidth, h / (float)virtualHeight);
+        offset = new Vector2((w - virtualWidth * scale) / 2f, (h - virtualHeight * scale) / 2f);
     }
 
     static Vector2 GetVirtualMousePosition(float scale, Vector2 offset)
     {
         Vector2 mouse = Raylib.GetMousePosition();
-        return new Vector2(
-            (mouse.X - offset.X) / scale,
-            (mouse.Y - offset.Y) / scale);
+        return new Vector2((mouse.X - offset.X) / scale, (mouse.Y - offset.Y) / scale);
     }
 
     static void LoadMap(
@@ -207,35 +168,33 @@ partial class Program
     {
         if (mapIndex == 0)
         {
-            Rectangle ground = new Rectangle(0, 750, 1200, 50);
-            Rectangle plat1 = new Rectangle(0, 500, 200, 20);
-            Rectangle plat2 = new Rectangle(250, 300, 400, 20);
-            Rectangle plat3 = new Rectangle(700, 600, 400, 20);
-            Rectangle b1 = new Rectangle(700, 300, 50, 50);
-            Rectangle b2 = new Rectangle(850, 350, 50, 50);
-            Rectangle b3 = new Rectangle(1000, 500, 50, 50);
-            Rectangle b4 = new Rectangle(1100, 650, 50, 50);
-
-            solidBlocks = new[] { ground, plat1, plat2, plat3, b1, b2, b3, b4 };
-            ladders = new[] { new Rectangle(850, 600, 50, 150) };
+            solidBlocks = new[] {
+                new Rectangle(0, 750, 1200, 50),
+                new Rectangle(0, 500, 200, 20),
+                new Rectangle(250, 300, 400, 20),
+                new Rectangle(700, 600, 400, 20),
+                new Rectangle(700, 300, 50, 50),
+                new Rectangle(850, 350, 50, 50),
+                new Rectangle(1000, 500, 50, 50),
+                new Rectangle(1100, 650, 50, 50)
+            };
+            ladders      = new[] { new Rectangle(850, 600, 50, 150) };
             player1Start = new Rectangle(100, 500, 40, 60);
             player2Start = new Rectangle(180, 500, 40, 60);
         }
         else
         {
-            // Off-screen safety floor so players in pits don't fall forever.
-            Rectangle safetyFloor = new Rectangle(0, 800, 1200, 100);
-            Rectangle bottomCenter = new Rectangle(435, 765, 215, 35);
-            Rectangle topPlat = new Rectangle(325, 180, 465, 20);
-            Rectangle midPlat = new Rectangle(240, 440, 220, 20);
-            Rectangle leftPlat = new Rectangle(0, 470, 210, 20);
-            Rectangle rightPlat = new Rectangle(730, 660, 470, 20);
-            Rectangle block1 = new Rectangle(535, 580, 50, 40);
-            Rectangle block2 = new Rectangle(380, 660, 50, 30);
-
-            solidBlocks = new[] { safetyFloor, bottomCenter, topPlat, midPlat, leftPlat, rightPlat, block1, block2 };
-            ladders = new[]
-            {
+            solidBlocks = new[] {
+                new Rectangle(0, 800, 1200, 100),
+                new Rectangle(435, 765, 215, 35),
+                new Rectangle(325, 180, 465, 20),
+                new Rectangle(240, 440, 220, 20),
+                new Rectangle(0, 470, 210, 20),
+                new Rectangle(730, 660, 470, 20),
+                new Rectangle(535, 580, 50, 40),
+                new Rectangle(380, 660, 50, 30)
+            };
+            ladders = new[] {
                 new Rectangle(635, 0, 50, 180),
                 new Rectangle(370, 200, 50, 240)
             };
@@ -246,73 +205,83 @@ partial class Program
 
     static void DrawHealthBars(int virtualWidth, int virtualHeight, int p1Health, int p2Health, int maxHealth, Texture2D crown)
     {
-        int barW = 50;
-        int barH = (int)(virtualHeight * 0.70f);
-        int barY = (int)(virtualHeight * 0.15f);
-        int margin = 100;
-
-        int p1X = margin;
-        int p2X = virtualWidth - margin - barW;
-
-        float p1Ratio = p1Health / (float)maxHealth;
-        float p2Ratio = p2Health / (float)maxHealth;
-
+        int barW = 50, barH = (int)(virtualHeight * 0.70f), barY = (int)(virtualHeight * 0.15f), margin = 100;
+        int p1X = margin, p2X = virtualWidth - margin - barW;
+        float p1Ratio = p1Health / (float)maxHealth, p2Ratio = p2Health / (float)maxHealth;
         Color dimRed = new Color(180, 80, 80, 255);
-        Color red = Color.Red;
 
-        // Bright red fills from the bottom; the lost HP shows as dim red on top.
         Raylib.DrawRectangle(p1X, barY, barW, barH, dimRed);
-        int p1Fill = (int)(barH * p1Ratio);
-        Raylib.DrawRectangle(p1X, barY + (barH - p1Fill), barW, p1Fill, red);
-
+        Raylib.DrawRectangle(p1X, barY + (barH - (int)(barH * p1Ratio)), barW, (int)(barH * p1Ratio), Color.Red);
         Raylib.DrawRectangle(p2X, barY, barW, barH, dimRed);
-        int p2Fill = (int)(barH * p2Ratio);
-        Raylib.DrawRectangle(p2X, barY + (barH - p2Fill), barW, p2Fill, red);
+        Raylib.DrawRectangle(p2X, barY + (barH - (int)(barH * p2Ratio)), barW, (int)(barH * p2Ratio), Color.Red);
 
-        int hpFontSize = 40;
-        int hpY = barY - hpFontSize - 10;
+        int hpFontSize = 40, hpY = barY - hpFontSize - 10;
+        string p1Str = p1Health.ToString(), p2Str = p2Health.ToString();
+        Raylib.DrawText(p1Str, p1X + (barW - Raylib.MeasureText(p1Str, hpFontSize)) / 2, hpY, hpFontSize, Color.LightGray);
+        Raylib.DrawText(p2Str, p2X + (barW - Raylib.MeasureText(p2Str, hpFontSize)) / 2, hpY, hpFontSize, Color.LightGray);
 
-        string p1Str = p1Health.ToString();
-        string p2Str = p2Health.ToString();
-
-        int p1TextW = Raylib.MeasureText(p1Str, hpFontSize);
-        int p2TextW = Raylib.MeasureText(p2Str, hpFontSize);
-
-        int p1TextX = p1X + (barW - p1TextW) / 2;
-        int p2TextX = p2X + (barW - p2TextW) / 2;
-
-        Raylib.DrawText(p1Str, p1TextX, hpY, hpFontSize, Color.LightGray);
-        Raylib.DrawText(p2Str, p2TextX, hpY, hpFontSize, Color.LightGray);
-
-        // Crown above the leading player (or both if tied)
-        int crownSize = 60;
-        int crownY = hpY - crownSize - 4;
+        int crownSize = 60, crownY = hpY - crownSize - 4;
         Rectangle crownSrc = new Rectangle(0, 0, crown.Width, crown.Height);
-
-        bool p1Leading = p1Health >= p2Health;
-        bool p2Leading = p2Health >= p1Health;
-
-        if (p1Leading)
-        {
-            int crownX = p1X + (barW - crownSize) / 2;
-            Raylib.DrawTexturePro(crown, crownSrc, new Rectangle(crownX, crownY, crownSize, crownSize), Vector2.Zero, 0f, Color.White);
-        }
-        if (p2Leading)
-        {
-            int crownX = p2X + (barW - crownSize) / 2;
-            Raylib.DrawTexturePro(crown, crownSrc, new Rectangle(crownX, crownY, crownSize, crownSize), Vector2.Zero, 0f, Color.White);
-        }
+        if (p1Health >= p2Health)
+            Raylib.DrawTexturePro(crown, crownSrc, new Rectangle(p1X + (barW - crownSize) / 2, crownY, crownSize, crownSize), Vector2.Zero, 0f, Color.White);
+        if (p2Health >= p1Health)
+            Raylib.DrawTexturePro(crown, crownSrc, new Rectangle(p2X + (barW - crownSize) / 2, crownY, crownSize, crownSize), Vector2.Zero, 0f, Color.White);
     }
 
     static void DrawToScreen(RenderTexture2D target, int virtualWidth, int virtualHeight, float scale, Vector2 offset)
     {
         Raylib.BeginDrawing();
         Raylib.ClearBackground(Color.Black);
-
-        Rectangle source = new Rectangle(0, 0, target.Texture.Width, -target.Texture.Height);
-        Rectangle dest = new Rectangle(offset.X, offset.Y, virtualWidth * scale, virtualHeight * scale);
-        Raylib.DrawTexturePro(target.Texture, source, dest, Vector2.Zero, 0f, Color.White);
-
+        Raylib.DrawTexturePro(
+            target.Texture,
+            new Rectangle(0, 0, target.Texture.Width, -target.Texture.Height),
+            new Rectangle(offset.X, offset.Y, virtualWidth * scale, virtualHeight * scale),
+            Vector2.Zero, 0f, Color.White);
         Raylib.EndDrawing();
+    }
+
+    // ── Network helpers ──────────────────────────────────────────────────────
+
+    static PlayerInput GatherInput(
+        bool left, bool right, bool climbUp, bool jumpPressed,
+        bool action, bool pickup,
+        Vector2 mouse, int selectedSlot)
+    {
+        return new PlayerInput
+        {
+            MoveLeft      = left,
+            MoveRight     = right,
+            ClimbUp       = climbUp,
+            JumpPressed   = jumpPressed,
+            ActionPressed = action,
+            PickupPressed = pickup,
+            MouseX        = mouse.X,
+            MouseY        = mouse.Y,
+            SelectedSlot  = selectedSlot,
+        };
+    }
+
+    static void HandleTextInput(ref string text, int maxLen, Func<char, bool> filter)
+    {
+        int c;
+        while ((c = Raylib.GetCharPressed()) > 0)
+        {
+            if (text.Length < maxLen && filter((char)c))
+                text += (char)c;
+        }
+        if (Raylib.IsKeyPressed(KeyboardKey.Backspace) && text.Length > 0)
+            text = text[..^1];
+    }
+
+    static string GetLocalIp()
+    {
+        try
+        {
+            foreach (var ip in Dns.GetHostEntry(Dns.GetHostName()).AddressList)
+                if (ip.AddressFamily == AddressFamily.InterNetwork)
+                    return ip.ToString();
+        }
+        catch { }
+        return "??.??.??.??";
     }
 }
