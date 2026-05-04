@@ -133,8 +133,8 @@ partial class Program
                 new Rectangle(380, 660, 50, 30)
             };
             ladders = new[] {
-                new Rectangle(548, 140, 50, 440), // petit bloc → plateforme haute
-                new Rectangle(370, 140, 50, 300)  // plateforme milieu → plateforme haute
+                new Rectangle(548, 180, 50, 400), // petit bloc → plateforme haute
+                new Rectangle(370, 180, 50, 260)  // plateforme milieu → plateforme haute
             };
             player1Start = new Rectangle(50, 410, 40, 60);
             player2Start = new Rectangle(1000, 600, 40, 60);
