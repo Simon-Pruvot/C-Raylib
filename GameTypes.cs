@@ -29,7 +29,7 @@ partial class Program
         public bool MoveRight;
         public bool ClimbUp;
         public bool JumpPressed;
-        public bool ActionPressed;   // left click: shoot or use item
+        public bool ActionPressed; // tir ou item
         public bool PickupPressed;
         public float MouseX;
         public float MouseY;
@@ -42,7 +42,7 @@ partial class Program
         public Vector2 Velocity;
         public float Radius;
         public float Life;
-        public bool IsP2Bullet; // true = hurts P1, false = hurts P2
+        public bool IsP2Bullet; // si vrai : blesse P1
     }
 
     struct Pickup

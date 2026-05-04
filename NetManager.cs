@@ -6,15 +6,14 @@ partial class Program
 {
     class NetManager
     {
-        const int Port = 7777;
+        const int Port       = 7777;
+        const int PacketSize = 13;
 
         UdpClient udp = null!;
         IPEndPoint? remoteEP;
 
-        public bool IsHost   { get; private set; }
+        public bool IsHost    { get; private set; }
         public bool Connected { get; private set; }
-
-        // ── Host side ────────────────────────────────────────────────────────
 
         public void StartHost()
         {
@@ -23,7 +22,6 @@ partial class Program
             udp.Client.Blocking = false;
         }
 
-        // Call every frame while waiting. Returns true + seed the moment a client connects.
         public bool HostPoll(out int seed)
         {
             seed = 0;
@@ -46,8 +44,6 @@ partial class Program
             return false;
         }
 
-        // ── Client side ───────────────────────────────────────────────────────
-
         public void StartClient(string hostIp)
         {
             IsHost = false;
@@ -56,13 +52,11 @@ partial class Program
             udp.Client.Blocking = false;
         }
 
-        // Call every frame while waiting. Keeps pinging host and returns true + seed when handshake completes.
         public bool ClientPoll(out int seed)
         {
             seed = 0;
             if (Connected) return true;
 
-            // Keep sending hello so the host notices us
             try { udp.Send(new byte[] { 0xAB }, 1, remoteEP); }
             catch { }
 
@@ -82,8 +76,6 @@ partial class Program
             return false;
         }
 
-        // ── Per-frame input exchange ──────────────────────────────────────────
-
         public void SendInput(PlayerInput input)
         {
             if (remoteEP == null) return;
@@ -92,7 +84,6 @@ partial class Program
             catch { }
         }
 
-        // Non-blocking: returns false if nothing arrived this frame.
         public bool TryReceiveInput(out PlayerInput input)
         {
             input = default;
@@ -116,11 +107,7 @@ partial class Program
             Connected = false;
         }
 
-        // ── Serialisation ─────────────────────────────────────────────────────
-        // Layout: 1 byte flags | 4 bytes mouseX | 4 bytes mouseY | 4 bytes selectedSlot = 13 bytes
-
-        const int PacketSize = 13;
-
+        // 1 octet flags | 4 mouseX | 4 mouseY | 4 slot = 13 octets
         static byte[] Pack(PlayerInput i)
         {
             byte flags = 0;

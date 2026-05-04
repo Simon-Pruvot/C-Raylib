@@ -9,21 +9,22 @@ partial class Program
 {
     static void DrawMenuHeader(Texture2D[] runAnimRight, int menuFrame)
     {
-        Texture2D menuTexture = runAnimRight[menuFrame];
-        Rectangle menuSource = new Rectangle(0, 0, menuTexture.Width, menuTexture.Height);
-        Rectangle menuDest = new Rectangle(540, 200, 120, 180);
-        Raylib.DrawTexturePro(menuTexture, menuSource, menuDest, Vector2.Zero, 0f, Color.White);
-        Raylib.DrawText("Yfight", 500, 100, 60, Color.White);
+        Texture2D tex = runAnimRight[menuFrame];
+        Raylib.DrawTexturePro(tex, new Rectangle(0, 0, tex.Width, tex.Height),
+            new Rectangle(540, 130, 120, 160), Vector2.Zero, 0f, Color.White);
+        string title = "Yfight";
+        int tw = Raylib.MeasureText(title, 64);
+        Raylib.DrawText(title, (1200 - tw) / 2, 55, 64, Color.White);
     }
 
     static void DrawButton(Rectangle button, string text, Vector2 mousePos)
     {
         bool hover = Raylib.CheckCollisionPointRec(mousePos, button);
-        Raylib.DrawRectangleRec(button, hover ? Color.Gray : Color.DarkGray);
-        int textWidth = Raylib.MeasureText(text, 28);
-        int textX = (int)(button.X + (button.Width - textWidth) / 2f);
-        int textY = (int)(button.Y + (button.Height - 28) / 2f);
-        Raylib.DrawText(text, textX, textY, 28, Color.White);
+        Raylib.DrawRectangleRec(button, hover ? new Color(55, 55, 55, 255) : new Color(28, 28, 28, 255));
+        Raylib.DrawRectangleLinesEx(button, hover ? 2f : 1f, hover ? Color.White : new Color(75, 75, 75, 255));
+        int tw = Raylib.MeasureText(text, 22);
+        Raylib.DrawText(text, (int)(button.X + (button.Width - tw) / 2f),
+                             (int)(button.Y + (button.Height - 22) / 2f), 22, Color.White);
     }
 
     static Texture2D GetItemTexture(ItemType item, Texture2D heal, Texture2D shield, Texture2D nuc)
@@ -118,12 +119,11 @@ partial class Program
             };
             ladders      = new[] { new Rectangle(850, 600, 50, 150) };
             player1Start = new Rectangle(100, 500, 40, 60);
-            player2Start = new Rectangle(180, 500, 40, 60);
+            player2Start = new Rectangle(950, 600, 40, 60);
         }
         else
         {
             solidBlocks = new[] {
-                new Rectangle(0, 800, 1200, 100),
                 new Rectangle(435, 765, 215, 35),
                 new Rectangle(325, 180, 465, 20),
                 new Rectangle(240, 440, 220, 20),
@@ -133,8 +133,8 @@ partial class Program
                 new Rectangle(380, 660, 50, 30)
             };
             ladders = new[] {
-                new Rectangle(635, 0, 50, 180),
-                new Rectangle(370, 200, 50, 240)
+                new Rectangle(548, 140, 50, 440), // petit bloc → plateforme haute
+                new Rectangle(370, 140, 50, 300)  // plateforme milieu → plateforme haute
             };
             player1Start = new Rectangle(50, 410, 40, 60);
             player2Start = new Rectangle(1000, 600, 40, 60);
@@ -178,8 +178,6 @@ partial class Program
         Raylib.EndDrawing();
     }
 
-    // ── Network helpers ──────────────────────────────────────────────────────
-
     static PlayerInput GatherInput(
         bool left, bool right, bool climbUp, bool jumpPressed,
         bool action, bool pickup,
@@ -213,8 +211,6 @@ partial class Program
 
     static string GetLocalIp()
     {
-        // Connecting to an external address (no data sent) forces the OS to pick
-        // the correct outgoing interface — avoids returning VirtualBox/VMware adapters.
         try
         {
             using var s = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
