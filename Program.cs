@@ -20,17 +20,17 @@ partial class Program
         Texture2D[] runAnimLeft  = { Raylib.LoadTexture("imgs/perso-gauche-1.png"), Raylib.LoadTexture("imgs/perso-gauche-2.png") };
         Texture2D[] climbAnim    = { Raylib.LoadTexture("imgs/perso-monte-1.png"),  Raylib.LoadTexture("imgs/perso-monte-2.png")  };
 
-        Texture2D gunRight           = Raylib.LoadTexture("imgs/gun-droite.png");
-        Texture2D gunLeft            = Raylib.LoadTexture("imgs/gun-gauche.png");
-        Texture2D healPotionTexture  = Raylib.LoadTexture("imgs/heal-potion.png");
+        Texture2D gunRight            = Raylib.LoadTexture("imgs/gun-droite.png");
+        Texture2D gunLeft             = Raylib.LoadTexture("imgs/gun-gauche.png");
+        Texture2D healPotionTexture   = Raylib.LoadTexture("imgs/heal-potion.png");
         Texture2D shieldPotionTexture = Raylib.LoadTexture("imgs/shild-potion.png");
-        Texture2D nucPotionTexture   = Raylib.LoadTexture("imgs/nuc-potion.png");
-        Texture2D shieldTexture      = Raylib.LoadTexture("imgs/shild.png");
-        Texture2D crownTexture       = Raylib.LoadTexture("imgs/crown.png");
-        Texture2D chestClosedTexture = Raylib.LoadTexture("imgs/coffre-fermé-1.png");
-        Texture2D chestOpenTexture   = Raylib.LoadTexture("imgs/coffre-ouvert-1.png");
+        Texture2D nucPotionTexture    = Raylib.LoadTexture("imgs/nuc-potion.png");
+        Texture2D shieldTexture       = Raylib.LoadTexture("imgs/shild.png");
+        Texture2D crownTexture        = Raylib.LoadTexture("imgs/crown.png");
+        Texture2D chestClosedTexture  = Raylib.LoadTexture("imgs/coffre-fermé-1.png");
+        Texture2D chestOpenTexture    = Raylib.LoadTexture("imgs/coffre-ouvert-1.png");
 
-        // ── Game state ──────────────────────────────────────────────────────
+        // ── Game variables ──────────────────────────────────────────────────
         int currentMap = 0;
         LoadMap(currentMap, out Rectangle[] solidBlocks, out Rectangle[] ladders,
                 out Rectangle player1Start, out Rectangle player2Start);
@@ -46,35 +46,41 @@ partial class Program
         float animTimer1 = 0f, animTimer2 = 0f, animSpeed = 0.2f;
 
         int maxHealth = 100, player1Health = 100, player2Health = 100;
-        int maxShield = 20,  player1Shield = 0;
+        int maxShield = 20,  player1Shield = 0,   player2Shield = 0;
         float gunLength = 70f, gunHeight = 24f;
         int gunDamage = 20;
-        float shotCooldown = 0.2f, shotTimer = 0f;
+        float shotCooldown = 0.2f, shotTimer1 = 0f, shotTimer2 = 0f;
         float bulletSpeed = 900f, bulletRadius = 4f, bulletLife = 2f;
         float chestSize = 48f, pickupGravity = 600f;
 
-        List<Bullet> bullets = new();
-        List<Pickup> pickups = new();
-        System.Random rng = new();
-        ItemType[] inventory   = { ItemType.Gun, ItemType.None, ItemType.None };
-        int selectedSlot = 0;
+        List<Bullet> bullets  = new();
+        List<Pickup> pickups  = new();
+        System.Random rng     = new();
+
+        // P1 inventory (always exists)
+        ItemType[] inventory1  = { ItemType.Gun, ItemType.None, ItemType.None };
+        int selectedSlot1 = 0;
+
+        // P2 inventory (only used in network mode)
+        ItemType[] inventory2  = { ItemType.Gun, ItemType.None, ItemType.None };
+        int selectedSlot2 = 0;
 
         // ── Network state ───────────────────────────────────────────────────
-        NetworkMode networkMode      = NetworkMode.Local;
-        NetManager? netManager       = null;
-        PlayerInput lastRemoteInput  = default;
-        string ipInputText           = "";
-        bool joinInputMode           = false;
-        string localIp               = "";
+        NetworkMode networkMode     = NetworkMode.Local;
+        NetManager? netManager      = null;
+        PlayerInput lastRemoteInput = default;
+        string ipInputText          = "";
+        bool joinInputMode          = false;
+        string localIp              = "";
 
-        // ── UI state ────────────────────────────────────────────────────────
-        GameState gameState   = GameState.Menu;
-        bool exitRequested    = false;
-        string winnerText     = string.Empty;
-        int menuFrame         = 0;
-        float menuTimer       = 0f;
+        // ── UI / flow ───────────────────────────────────────────────────────
+        GameState gameState = GameState.Menu;
+        bool exitRequested  = false;
+        string winnerText   = string.Empty;
+        int menuFrame       = 0;
+        float menuTimer     = 0f;
 
-        // Button layout
+        // Buttons
         Rectangle playButton    = new(500, 450, 200, 60);
         Rectangle onlineButton  = new(500, 530, 200, 60);
         Rectangle hostButton    = new(500, 370, 200, 60);
@@ -89,9 +95,7 @@ partial class Program
         while (!Raylib.WindowShouldClose() && !exitRequested)
         {
             float deltaTime = Raylib.GetFrameTime();
-
-            if (Raylib.IsKeyPressed(KeyboardKey.F11))
-                Raylib.ToggleFullscreen();
+            if (Raylib.IsKeyPressed(KeyboardKey.F11)) Raylib.ToggleFullscreen();
 
             GetRenderScale(virtualWidth, virtualHeight, out float scale, out Vector2 offset);
             Vector2 mouse = GetVirtualMousePosition(scale, offset);
@@ -110,12 +114,14 @@ partial class Program
                     currentMap  = 0;
                     LoadMap(currentMap, out solidBlocks, out ladders, out player1Start, out player2Start);
                     rng = new System.Random();
-                    ResetGame(ref player1, ref player2, player1Start, player2Start,
-                        ref yVel1, ref yVel2, ref onGround1, ref onGround2, ref onLadder1, ref onLadder2,
-                        ref facingRight1, ref facingRight2, ref currentFrame1, ref currentFrame2,
-                        ref animTimer1, ref animTimer2, ref player1Health, ref player2Health, maxHealth,
-                        ref player1Shield, maxShield, inventory, ref selectedSlot, ref shotTimer,
-                        bullets, pickups, rng, virtualWidth, chestSize);
+                    ResetAll(ref player1, ref player2, player1Start, player2Start,
+                        ref yVel1, ref yVel2, ref onGround1, ref onGround2,
+                        ref onLadder1, ref onLadder2, ref facingRight1, ref facingRight2,
+                        ref currentFrame1, ref currentFrame2, ref animTimer1, ref animTimer2,
+                        ref player1Health, ref player2Health, maxHealth,
+                        ref player1Shield, ref player2Shield, maxShield,
+                        inventory1, inventory2, ref selectedSlot1, ref selectedSlot2,
+                        ref shotTimer1, ref shotTimer2, bullets, pickups, rng, virtualWidth, chestSize);
                     winnerText = string.Empty;
                     gameState  = GameState.Playing;
                 }
@@ -129,15 +135,15 @@ partial class Program
                 Raylib.BeginTextureMode(renderTarget);
                 Raylib.ClearBackground(Color.Black);
                 DrawMenuHeader(runAnimRight, menuFrame);
-                DrawButton(playButton,   "Jouer (local)",   mouse);
-                DrawButton(onlineButton, "Jouer en ligne",  mouse);
+                DrawButton(playButton,   "Jouer (local)",  mouse);
+                DrawButton(onlineButton, "Jouer en ligne", mouse);
                 Raylib.EndTextureMode();
                 DrawToScreen(renderTarget, virtualWidth, virtualHeight, scale, offset);
                 continue;
             }
 
             // ═══════════════════════════════════════════════════════════════
-            // LOBBY  — choose Host or Join
+            // LOBBY
             // ═══════════════════════════════════════════════════════════════
             if (gameState == GameState.Lobby)
             {
@@ -169,7 +175,6 @@ partial class Program
                 }
                 else
                 {
-                    // IP text field active
                     HandleTextInput(ref ipInputText, 15, c => c == '.' || (c >= '0' && c <= '9'));
 
                     if (Raylib.CheckCollisionPointRec(mouse, connectButton)
@@ -210,7 +215,7 @@ partial class Program
             }
 
             // ═══════════════════════════════════════════════════════════════
-            // CONNECTING  — wait for handshake
+            // CONNECTING
             // ═══════════════════════════════════════════════════════════════
             if (gameState == GameState.Connecting)
             {
@@ -227,17 +232,18 @@ partial class Program
                 {
                     rng = new System.Random(gameSeed);
                     lastRemoteInput = default;
-                    currentMap = 0;
+                    currentMap      = 0;
                     LoadMap(currentMap, out solidBlocks, out ladders, out player1Start, out player2Start);
-                    ResetGame(ref player1, ref player2, player1Start, player2Start,
-                        ref yVel1, ref yVel2, ref onGround1, ref onGround2, ref onLadder1, ref onLadder2,
-                        ref facingRight1, ref facingRight2, ref currentFrame1, ref currentFrame2,
-                        ref animTimer1, ref animTimer2, ref player1Health, ref player2Health, maxHealth,
-                        ref player1Shield, maxShield, inventory, ref selectedSlot, ref shotTimer,
-                        bullets, pickups, rng, virtualWidth, chestSize);
+                    ResetAll(ref player1, ref player2, player1Start, player2Start,
+                        ref yVel1, ref yVel2, ref onGround1, ref onGround2,
+                        ref onLadder1, ref onLadder2, ref facingRight1, ref facingRight2,
+                        ref currentFrame1, ref currentFrame2, ref animTimer1, ref animTimer2,
+                        ref player1Health, ref player2Health, maxHealth,
+                        ref player1Shield, ref player2Shield, maxShield,
+                        inventory1, inventory2, ref selectedSlot1, ref selectedSlot2,
+                        ref shotTimer1, ref shotTimer2, bullets, pickups, rng, virtualWidth, chestSize);
                     winnerText = string.Empty;
                     gameState  = GameState.Playing;
-                    // Don't continue — fall through to render the first playing frame next loop
                     continue;
                 }
 
@@ -249,11 +255,12 @@ partial class Program
                 {
                     Raylib.DrawText("En attente du joueur 2...", 360, 390, 28, Color.White);
                     Raylib.DrawText($"Votre IP : {localIp}", 430, 435, 22, Color.LightGray);
-                    Raylib.DrawText("(communiquez cette IP à votre adversaire)", 295, 468, 18, Color.Gray);
+                    Raylib.DrawText("(port 7777 — communiquez cette IP à votre adversaire)", 260, 468, 18, Color.Gray);
                 }
                 else
                 {
-                    Raylib.DrawText($"Connexion à {ipInputText}...", 400, 410, 26, Color.White);
+                    Raylib.DrawText($"Connexion à {ipInputText}:7777 ...", 350, 410, 26, Color.White);
+                    Raylib.DrawText("Assurez-vous que l'hôte a lancé le jeu en premier.", 295, 455, 18, Color.Gray);
                 }
 
                 Raylib.EndTextureMode();
@@ -262,29 +269,28 @@ partial class Program
             }
 
             // ═══════════════════════════════════════════════════════════════
-            // END SCREEN
+            // END
             // ═══════════════════════════════════════════════════════════════
             if (gameState == GameState.End)
             {
                 menuTimer += deltaTime;
                 if (menuTimer >= animSpeed) { menuFrame = (menuFrame + 1) % 2; menuTimer = 0f; }
 
-                bool hoverReplay = Raylib.CheckCollisionPointRec(mouse, replayButton);
-                bool hoverQuit   = Raylib.CheckCollisionPointRec(mouse, quitButton);
-
-                if (hoverReplay && Raylib.IsMouseButtonPressed(MouseButton.Left))
+                if (Raylib.CheckCollisionPointRec(mouse, replayButton) && Raylib.IsMouseButtonPressed(MouseButton.Left))
                 {
                     if (networkMode == NetworkMode.Local)
                     {
                         currentMap = (currentMap + 1) % 2;
                         LoadMap(currentMap, out solidBlocks, out ladders, out player1Start, out player2Start);
                         rng = new System.Random();
-                        ResetGame(ref player1, ref player2, player1Start, player2Start,
-                            ref yVel1, ref yVel2, ref onGround1, ref onGround2, ref onLadder1, ref onLadder2,
-                            ref facingRight1, ref facingRight2, ref currentFrame1, ref currentFrame2,
-                            ref animTimer1, ref animTimer2, ref player1Health, ref player2Health, maxHealth,
-                            ref player1Shield, maxShield, inventory, ref selectedSlot, ref shotTimer,
-                            bullets, pickups, rng, virtualWidth, chestSize);
+                        ResetAll(ref player1, ref player2, player1Start, player2Start,
+                            ref yVel1, ref yVel2, ref onGround1, ref onGround2,
+                            ref onLadder1, ref onLadder2, ref facingRight1, ref facingRight2,
+                            ref currentFrame1, ref currentFrame2, ref animTimer1, ref animTimer2,
+                            ref player1Health, ref player2Health, maxHealth,
+                            ref player1Shield, ref player2Shield, maxShield,
+                            inventory1, inventory2, ref selectedSlot1, ref selectedSlot2,
+                            ref shotTimer1, ref shotTimer2, bullets, pickups, rng, virtualWidth, chestSize);
                         winnerText = string.Empty;
                         gameState  = GameState.Playing;
                     }
@@ -297,7 +303,7 @@ partial class Program
                         gameState     = GameState.Lobby;
                     }
                 }
-                else if (hoverQuit && Raylib.IsMouseButtonPressed(MouseButton.Left))
+                else if (Raylib.CheckCollisionPointRec(mouse, quitButton) && Raylib.IsMouseButtonPressed(MouseButton.Left))
                 {
                     exitRequested = true;
                 }
@@ -323,77 +329,78 @@ partial class Program
             // PLAYING
             // ═══════════════════════════════════════════════════════════════
 
-            // ── 1. Gather inputs ────────────────────────────────────────────
+            // ── 1. Gather & exchange inputs ─────────────────────────────────
             PlayerInput p1Input, p2Input;
 
             if (networkMode == NetworkMode.Local)
             {
-                // Slot selection (P1 only — P2 has no inventory in local mode)
-                if (Raylib.IsKeyPressed(KeyboardKey.One))   selectedSlot = 0;
-                if (Raylib.IsKeyPressed(KeyboardKey.Two))   selectedSlot = 1;
-                if (Raylib.IsKeyPressed(KeyboardKey.Three)) selectedSlot = 2;
+                // P1 slot selection (P2 has no inventory in local mode)
+                if (Raylib.IsKeyPressed(KeyboardKey.One))   selectedSlot1 = 0;
+                if (Raylib.IsKeyPressed(KeyboardKey.Two))   selectedSlot1 = 1;
+                if (Raylib.IsKeyPressed(KeyboardKey.Three)) selectedSlot1 = 2;
 
                 p1Input = GatherInput(
-                    Raylib.IsKeyDown(KeyboardKey.Left),
-                    Raylib.IsKeyDown(KeyboardKey.Right),
-                    Raylib.IsKeyDown(KeyboardKey.Up),
-                    Raylib.IsKeyPressed(KeyboardKey.Up),
-                    Raylib.IsMouseButtonPressed(MouseButton.Left),
-                    Raylib.IsKeyPressed(KeyboardKey.E),
-                    mouse, selectedSlot);
+                    Raylib.IsKeyDown(KeyboardKey.Left), Raylib.IsKeyDown(KeyboardKey.Right),
+                    Raylib.IsKeyDown(KeyboardKey.Up),   Raylib.IsKeyPressed(KeyboardKey.Up),
+                    Raylib.IsMouseButtonPressed(MouseButton.Left), Raylib.IsKeyPressed(KeyboardKey.E),
+                    mouse, selectedSlot1);
 
                 p2Input = GatherInput(
-                    Raylib.IsKeyDown(KeyboardKey.A),
-                    Raylib.IsKeyDown(KeyboardKey.D),
-                    Raylib.IsKeyDown(KeyboardKey.W),
-                    Raylib.IsKeyPressed(KeyboardKey.W),
-                    false, false,
-                    mouse, 0);
+                    Raylib.IsKeyDown(KeyboardKey.A), Raylib.IsKeyDown(KeyboardKey.D),
+                    Raylib.IsKeyDown(KeyboardKey.W), Raylib.IsKeyPressed(KeyboardKey.W),
+                    false, false, mouse, 0);
             }
             else
             {
-                // Slot selection updates selectedSlot locally (host) or from packet (client)
+                // ── HOST = P1 ──
                 if (networkMode == NetworkMode.Host)
                 {
-                    if (Raylib.IsKeyPressed(KeyboardKey.One))   selectedSlot = 0;
-                    if (Raylib.IsKeyPressed(KeyboardKey.Two))   selectedSlot = 1;
-                    if (Raylib.IsKeyPressed(KeyboardKey.Three)) selectedSlot = 2;
+                    if (Raylib.IsKeyPressed(KeyboardKey.One))   selectedSlot1 = 0;
+                    if (Raylib.IsKeyPressed(KeyboardKey.Two))   selectedSlot1 = 1;
+                    if (Raylib.IsKeyPressed(KeyboardKey.Three)) selectedSlot1 = 2;
+
+                    p1Input = GatherInput(
+                        Raylib.IsKeyDown(KeyboardKey.Left), Raylib.IsKeyDown(KeyboardKey.Right),
+                        Raylib.IsKeyDown(KeyboardKey.Up),   Raylib.IsKeyPressed(KeyboardKey.Up),
+                        Raylib.IsMouseButtonPressed(MouseButton.Left), Raylib.IsKeyPressed(KeyboardKey.E),
+                        mouse, selectedSlot1);
+
+                    netManager!.SendInput(p1Input);
+                    if (netManager.TryReceiveInput(out PlayerInput recv)) lastRemoteInput = recv;
+
+                    p2Input       = lastRemoteInput;
+                    selectedSlot2 = p2Input.SelectedSlot; // sync P2 slot from client's packet
                 }
-
-                // Local player is always P1 on Host, P2 on Client
-                PlayerInput local = GatherInput(
-                    Raylib.IsKeyDown(KeyboardKey.Left),
-                    Raylib.IsKeyDown(KeyboardKey.Right),
-                    Raylib.IsKeyDown(KeyboardKey.Up),
-                    Raylib.IsKeyPressed(KeyboardKey.Up),
-                    Raylib.IsMouseButtonPressed(MouseButton.Left),
-                    Raylib.IsKeyPressed(KeyboardKey.E),
-                    mouse, selectedSlot);
-
-                netManager!.SendInput(local);
-                if (netManager.TryReceiveInput(out PlayerInput received))
-                    lastRemoteInput = received;
-
-                if (networkMode == NetworkMode.Host)
-                {
-                    p1Input = local;
-                    p2Input = lastRemoteInput;
-                }
+                // ── CLIENT = P2 ──
                 else
                 {
-                    // Client is P2; sync selectedSlot from P1's packet
-                    selectedSlot = lastRemoteInput.SelectedSlot;
-                    p1Input = lastRemoteInput;
-                    p2Input = local;
+                    if (Raylib.IsKeyPressed(KeyboardKey.One))   selectedSlot2 = 0;
+                    if (Raylib.IsKeyPressed(KeyboardKey.Two))   selectedSlot2 = 1;
+                    if (Raylib.IsKeyPressed(KeyboardKey.Three)) selectedSlot2 = 2;
+
+                    p2Input = GatherInput(
+                        Raylib.IsKeyDown(KeyboardKey.Left), Raylib.IsKeyDown(KeyboardKey.Right),
+                        Raylib.IsKeyDown(KeyboardKey.Up),   Raylib.IsKeyPressed(KeyboardKey.Up),
+                        Raylib.IsMouseButtonPressed(MouseButton.Left), Raylib.IsKeyPressed(KeyboardKey.E),
+                        mouse, selectedSlot2); // <-- client sends its OWN slot
+
+                    netManager!.SendInput(p2Input);
+                    if (netManager.TryReceiveInput(out PlayerInput recv)) lastRemoteInput = recv;
+
+                    p1Input       = lastRemoteInput;
+                    selectedSlot1 = p1Input.SelectedSlot; // sync P1 slot from host's packet
                 }
             }
 
-            // ── 2. P1 aim direction (mouse from p1Input so client stays in sync) ──
+            // ── 2. Aim directions ───────────────────────────────────────────
             Vector2 player1Center = new(player1.X + player1.Width / 2f, player1.Y + player1.Height / 2f);
-            Vector2 p1Mouse       = new(p1Input.MouseX, p1Input.MouseY);
-            Vector2 aimDir        = p1Mouse - player1Center;
-            if (aimDir.LengthSquared() > 0.0001f) aimDir = Vector2.Normalize(aimDir);
-            else aimDir = new Vector2(1f, 0f);
+            Vector2 player2Center = new(player2.X + player2.Width / 2f, player2.Y + player2.Height / 2f);
+
+            Vector2 aimDir1 = new Vector2(p1Input.MouseX, p1Input.MouseY) - player1Center;
+            if (aimDir1.LengthSquared() > 0.0001f) aimDir1 = Vector2.Normalize(aimDir1); else aimDir1 = new(1f, 0f);
+
+            Vector2 aimDir2 = new Vector2(p2Input.MouseX, p2Input.MouseY) - player2Center;
+            if (aimDir2.LengthSquared() > 0.0001f) aimDir2 = Vector2.Normalize(aimDir2); else aimDir2 = new(-1f, 0f);
 
             // ── 3. Move players ─────────────────────────────────────────────
             Texture2D player1Texture = UpdatePlayer(
@@ -413,28 +420,17 @@ partial class Program
             {
                 Pickup pk = pickups[i];
                 pk.Velocity = new Vector2(pk.Velocity.X, pk.Velocity.Y + pickupGravity * deltaTime);
-                Vector2 nextPos  = pk.Position + pk.Velocity * deltaTime;
-                Rectangle nextRc = new(nextPos.X, nextPos.Y, chestSize, chestSize);
-
+                Vector2 np   = pk.Position + pk.Velocity * deltaTime;
+                Rectangle nr = new(np.X, np.Y, chestSize, chestSize);
                 if (pk.Velocity.Y > 0f)
-                {
-                    foreach (Rectangle block in solidBlocks)
-                    {
-                        if (Raylib.CheckCollisionRecs(nextRc, block))
-                        {
-                            nextPos.Y  = block.Y - chestSize;
-                            pk.Velocity = Vector2.Zero;
-                            break;
-                        }
-                    }
-                }
-
-                pk.Position = nextPos;
+                    foreach (Rectangle b in solidBlocks)
+                        if (Raylib.CheckCollisionRecs(nr, b)) { np.Y = b.Y - chestSize; pk.Velocity = Vector2.Zero; break; }
+                pk.Position = np;
                 if (pk.Position.Y > virtualHeight + chestSize) pickups.RemoveAt(i);
                 else pickups[i] = pk;
             }
 
-            // ── 5. P1 pickup (E) ────────────────────────────────────────────
+            // ── 5. P1 pickup ────────────────────────────────────────────────
             if (p1Input.PickupPressed)
             {
                 for (int i = pickups.Count - 1; i >= 0; i--)
@@ -443,11 +439,11 @@ partial class Program
                     if (!Raylib.CheckCollisionRecs(player1, new Rectangle(pk.Position.X, pk.Position.Y, chestSize, chestSize))) continue;
                     if (pk.Type == ItemType.Chest && !pk.IsOpened)
                     {
-                        int slot = inventory[1] == ItemType.None ? 1 : inventory[2] == ItemType.None ? 2 : -1;
+                        int slot = inventory1[1] == ItemType.None ? 1 : inventory1[2] == ItemType.None ? 2 : -1;
                         if (slot != -1)
                         {
                             ItemType[] drops = { ItemType.HealPotion, ItemType.ShieldPotion, ItemType.NucPotion };
-                            inventory[slot] = drops[rng.Next(drops.Length)];
+                            inventory1[slot] = drops[rng.Next(drops.Length)];
                             pk.IsOpened = true;
                             pickups[i]  = pk;
                         }
@@ -456,45 +452,100 @@ partial class Program
                 }
             }
 
-            // ── 6. Shooting / item use (P1 only) ────────────────────────────
-            shotTimer -= deltaTime;
-            if (shotTimer < 0f) shotTimer = 0f;
-
-            Vector2 gunEnd = player1Center + aimDir * gunLength;
-
-            if (p1Input.ActionPressed)
+            // ── 6. P2 pickup (network only) ─────────────────────────────────
+            if (networkMode != NetworkMode.Local && p2Input.PickupPressed)
             {
-                if (selectedSlot == 0 && shotTimer <= 0f)
+                for (int i = pickups.Count - 1; i >= 0; i--)
                 {
-                    bullets.Add(new Bullet
+                    Pickup pk = pickups[i];
+                    if (!Raylib.CheckCollisionRecs(player2, new Rectangle(pk.Position.X, pk.Position.Y, chestSize, chestSize))) continue;
+                    if (pk.Type == ItemType.Chest && !pk.IsOpened)
                     {
-                        Position = gunEnd,
-                        Velocity = aimDir * bulletSpeed,
-                        Radius   = bulletRadius,
-                        Life     = bulletLife
-                    });
-                    shotTimer = shotCooldown;
-                }
-                else if (selectedSlot > 0 && inventory[selectedSlot] != ItemType.None)
-                {
-                    UseItem(inventory[selectedSlot], ref player1Health, ref player1Shield, maxHealth, maxShield, ref player2Health);
-                    inventory[selectedSlot] = ItemType.None;
+                        int slot = inventory2[1] == ItemType.None ? 1 : inventory2[2] == ItemType.None ? 2 : -1;
+                        if (slot != -1)
+                        {
+                            ItemType[] drops = { ItemType.HealPotion, ItemType.ShieldPotion, ItemType.NucPotion };
+                            inventory2[slot] = drops[rng.Next(drops.Length)];
+                            pk.IsOpened = true;
+                            pickups[i]  = pk;
+                        }
+                    }
+                    break;
                 }
             }
 
-            // ── 7. Bullet update ────────────────────────────────────────────
+            // ── 7. Shooting & items ─────────────────────────────────────────
+            shotTimer1 -= deltaTime; if (shotTimer1 < 0f) shotTimer1 = 0f;
+            shotTimer2 -= deltaTime; if (shotTimer2 < 0f) shotTimer2 = 0f;
+
+            // P1 action
+            if (p1Input.ActionPressed)
+            {
+                if (selectedSlot1 == 0 && shotTimer1 <= 0f)
+                {
+                    bullets.Add(new Bullet
+                    {
+                        Position   = player1Center + aimDir1 * gunLength,
+                        Velocity   = aimDir1 * bulletSpeed,
+                        Radius     = bulletRadius,
+                        Life       = bulletLife,
+                        IsP2Bullet = false
+                    });
+                    shotTimer1 = shotCooldown;
+                }
+                else if (selectedSlot1 > 0 && inventory1[selectedSlot1] != ItemType.None)
+                {
+                    UseItem(inventory1[selectedSlot1], ref player1Health, ref player1Shield, maxHealth, maxShield, ref player2Health);
+                    inventory1[selectedSlot1] = ItemType.None;
+                }
+            }
+
+            // P2 action (network only)
+            if (networkMode != NetworkMode.Local && p2Input.ActionPressed)
+            {
+                if (selectedSlot2 == 0 && shotTimer2 <= 0f)
+                {
+                    bullets.Add(new Bullet
+                    {
+                        Position   = player2Center + aimDir2 * gunLength,
+                        Velocity   = aimDir2 * bulletSpeed,
+                        Radius     = bulletRadius,
+                        Life       = bulletLife,
+                        IsP2Bullet = true
+                    });
+                    shotTimer2 = shotCooldown;
+                }
+                else if (selectedSlot2 > 0 && inventory2[selectedSlot2] != ItemType.None)
+                {
+                    UseItem(inventory2[selectedSlot2], ref player2Health, ref player2Shield, maxHealth, maxShield, ref player1Health);
+                    inventory2[selectedSlot2] = ItemType.None;
+                }
+            }
+
+            // ── 8. Bullet update ────────────────────────────────────────────
             for (int i = bullets.Count - 1; i >= 0; i--)
             {
                 Bullet b = bullets[i];
                 b.Position += b.Velocity * deltaTime;
                 b.Life     -= deltaTime;
 
-                bool remove = b.Life <= 0f || b.Position.X < 0 || b.Position.X > virtualWidth
-                                           || b.Position.Y < 0 || b.Position.Y > virtualHeight;
+                bool remove = b.Life <= 0f
+                    || b.Position.X < 0 || b.Position.X > virtualWidth
+                    || b.Position.Y < 0 || b.Position.Y > virtualHeight;
 
-                if (!remove && PointInRect(b.Position, player2))
+                // P1 bullets hit P2, P2 bullets hit P1
+                if (!remove && !b.IsP2Bullet && PointInRect(b.Position, player2))
                 {
-                    player2Health = System.Math.Max(0, player2Health - gunDamage);
+                    int dmg = player2Shield > 0 ? 0 : gunDamage;
+                    if (player2Shield > 0) player2Shield = System.Math.Max(0, player2Shield - 1);
+                    else player2Health = System.Math.Max(0, player2Health - dmg);
+                    remove = true;
+                }
+                if (!remove && b.IsP2Bullet && PointInRect(b.Position, player1))
+                {
+                    int dmg = player1Shield > 0 ? 0 : gunDamage;
+                    if (player1Shield > 0) player1Shield = System.Math.Max(0, player1Shield - 1);
+                    else player1Health = System.Math.Max(0, player1Health - dmg);
                     remove = true;
                 }
 
@@ -506,7 +557,7 @@ partial class Program
                 else        bullets[i] = b;
             }
 
-            // ── 8. Win condition ────────────────────────────────────────────
+            // ── 9. Win condition ────────────────────────────────────────────
             if (player1Health <= 0 || player2Health <= 0)
             {
                 winnerText = (player1Health <= 0 && player2Health <= 0) ? "Egalité"
@@ -516,7 +567,7 @@ partial class Program
                 continue;
             }
 
-            // ── 9. Render ───────────────────────────────────────────────────
+            // ── 10. Render ──────────────────────────────────────────────────
             Raylib.BeginTextureMode(renderTarget);
             Raylib.ClearBackground(Color.Black);
 
@@ -525,8 +576,7 @@ partial class Program
                 if (block.Y >= virtualHeight) continue;
                 Raylib.DrawRectangleRec(block, Color.White);
             }
-            foreach (Rectangle l in ladders)
-                Raylib.DrawRectangleRec(l, Color.Gray);
+            foreach (Rectangle l in ladders) Raylib.DrawRectangleRec(l, Color.Gray);
 
             foreach (Pickup pk in pickups)
             {
@@ -539,49 +589,54 @@ partial class Program
                     Vector2.Zero, 0f, Color.White);
             }
 
-            Raylib.DrawTexturePro(player1Texture, new Rectangle(0, 0, player1Texture.Width, player1Texture.Height), player1, Vector2.Zero, 0f, Color.White);
-            Raylib.DrawTexturePro(player2Texture, new Rectangle(0, 0, player2Texture.Width, player2Texture.Height), player2, Vector2.Zero, 0f, Color.White);
+            Raylib.DrawTexturePro(player1Texture,
+                new Rectangle(0, 0, player1Texture.Width, player1Texture.Height), player1, Vector2.Zero, 0f, Color.White);
+            Raylib.DrawTexturePro(player2Texture,
+                new Rectangle(0, 0, player2Texture.Width, player2Texture.Height), player2, Vector2.Zero, 0f, Color.White);
 
+            // P1 shield
             if (player1Shield > 0)
                 Raylib.DrawTexturePro(shieldTexture,
                     new Rectangle(0, 0, shieldTexture.Width, shieldTexture.Height),
                     new Rectangle(player1.X - 6f, player1.Y - 6f, player1.Width + 12f, player1.Height + 12f),
                     Vector2.Zero, 0f, new Color(255, 255, 255, 77));
 
-            if (selectedSlot == 0)
-            {
-                Texture2D gunTex = aimDir.X >= 0f ? gunRight : gunLeft;
-                float gunAngle   = MathF.Atan2(aimDir.Y, aimDir.X) * (180f / MathF.PI);
-                float rotation   = aimDir.X >= 0f ? gunAngle : gunAngle - 180f;
-                Vector2 origin   = aimDir.X >= 0f ? new Vector2(0f, gunHeight / 2f) : new Vector2(gunLength, gunHeight / 2f);
-                Raylib.DrawTexturePro(gunTex,
-                    new Rectangle(0, 0, gunTex.Width, gunTex.Height),
-                    new Rectangle(player1Center.X, player1Center.Y, gunLength, gunHeight),
-                    origin, rotation, Color.White);
-            }
-            else if (selectedSlot > 0 && inventory[selectedSlot] != ItemType.None)
-            {
-                Texture2D heldTex = GetItemTexture(inventory[selectedSlot], healPotionTexture, shieldPotionTexture, nucPotionTexture);
-                Vector2 heldPos   = player1Center + new Vector2(aimDir.X * 25f, aimDir.Y * 25f);
-                Raylib.DrawTexturePro(heldTex,
-                    new Rectangle(0, 0, heldTex.Width, heldTex.Height),
-                    new Rectangle(heldPos.X - 12f, heldPos.Y - 12f, 24f, 24f),
-                    Vector2.Zero, 0f, Color.White);
-            }
+            // P2 shield (network only)
+            if (networkMode != NetworkMode.Local && player2Shield > 0)
+                Raylib.DrawTexturePro(shieldTexture,
+                    new Rectangle(0, 0, shieldTexture.Width, shieldTexture.Height),
+                    new Rectangle(player2.X - 6f, player2.Y - 6f, player2.Width + 12f, player2.Height + 12f),
+                    Vector2.Zero, 0f, new Color(100, 100, 255, 77));
+
+            // P1 gun / held item
+            DrawPlayerWeapon(selectedSlot1, inventory1, aimDir1, player1Center,
+                gunRight, gunLeft, gunLength, gunHeight,
+                healPotionTexture, shieldPotionTexture, nucPotionTexture);
+
+            // P2 gun / held item (network only)
+            if (networkMode != NetworkMode.Local)
+                DrawPlayerWeapon(selectedSlot2, inventory2, aimDir2, player2Center,
+                    gunRight, gunLeft, gunLength, gunHeight,
+                    healPotionTexture, shieldPotionTexture, nucPotionTexture);
 
             foreach (Bullet b in bullets)
-                Raylib.DrawCircleV(b.Position, b.Radius, Color.Yellow);
+                Raylib.DrawCircleV(b.Position, b.Radius, b.IsP2Bullet ? new Color(0, 220, 220, 255) : Color.Yellow);
 
             DrawHealthBars(virtualWidth, virtualHeight, player1Health, player2Health, maxHealth, crownTexture);
-            DrawInventory(inventory, selectedSlot, healPotionTexture, shieldPotionTexture, nucPotionTexture, virtualHeight);
 
-            string controls = networkMode == NetworkMode.Local
-                ? "F11=Plein écran | P1: Flèches+Souris | P2: ZQSD"
-                : networkMode == NetworkMode.Host
-                    ? "F11=Plein écran | Flèches+Souris | Vous êtes P1"
-                    : "F11=Plein écran | Flèches+Souris | Vous êtes P2";
-            Raylib.DrawText(controls, 10, 10, 18, Color.White);
-            Raylib.DrawText("E=Ramasser | 1-3=Equip | Clic=Utiliser", 10, 32, 18, Color.White);
+            // P1 inventory (bottom-left)
+            DrawInventory(inventory1, selectedSlot1, healPotionTexture, shieldPotionTexture, nucPotionTexture, virtualHeight);
+
+            // P2 inventory (bottom-right, network only)
+            if (networkMode != NetworkMode.Local)
+                DrawInventoryRight(inventory2, selectedSlot2, healPotionTexture, shieldPotionTexture, nucPotionTexture, virtualHeight, virtualWidth);
+
+            // HUD text
+            string role = networkMode == NetworkMode.Local ? "P1: Flèches+Souris | P2: ZQSD"
+                        : networkMode == NetworkMode.Host  ? "Vous êtes P1 — Flèches + Souris"
+                                                           : "Vous êtes P2 — Flèches + Souris";
+            Raylib.DrawText(role, 10, 10, 18, Color.White);
+            Raylib.DrawText("E=Ramasser | 1-3=Equip | Clic=Utiliser/Tirer", 10, 32, 18, Color.White);
 
             Raylib.EndTextureMode();
             DrawToScreen(renderTarget, virtualWidth, virtualHeight, scale, offset);
@@ -603,5 +658,102 @@ partial class Program
         Raylib.UnloadTexture(chestOpenTexture);
         Raylib.UnloadRenderTexture(renderTarget);
         Raylib.CloseWindow();
+    }
+
+    // Draw a player's gun or held item
+    static void DrawPlayerWeapon(
+        int slot, ItemType[] inventory, Vector2 aimDir, Vector2 center,
+        Texture2D gunRight, Texture2D gunLeft, float gunLength, float gunHeight,
+        Texture2D heal, Texture2D shield, Texture2D nuc)
+    {
+        if (slot == 0)
+        {
+            Texture2D tex  = aimDir.X >= 0f ? gunRight : gunLeft;
+            float angle    = MathF.Atan2(aimDir.Y, aimDir.X) * (180f / MathF.PI);
+            float rotation = aimDir.X >= 0f ? angle : angle - 180f;
+            Vector2 origin = aimDir.X >= 0f ? new(0f, gunHeight / 2f) : new(gunLength, gunHeight / 2f);
+            Raylib.DrawTexturePro(tex,
+                new Rectangle(0, 0, tex.Width, tex.Height),
+                new Rectangle(center.X, center.Y, gunLength, gunHeight),
+                origin, rotation, Color.White);
+        }
+        else if (slot > 0 && inventory[slot] != ItemType.None)
+        {
+            Texture2D tex = GetItemTexture(inventory[slot], heal, shield, nuc);
+            Vector2 pos   = center + new Vector2(aimDir.X * 25f, aimDir.Y * 25f);
+            Raylib.DrawTexturePro(tex,
+                new Rectangle(0, 0, tex.Width, tex.Height),
+                new Rectangle(pos.X - 12f, pos.Y - 12f, 24f, 24f),
+                Vector2.Zero, 0f, Color.White);
+        }
+    }
+
+    // P2 inventory drawn on the bottom-right
+    static void DrawInventoryRight(
+        ItemType[] inventory, int selectedSlot,
+        Texture2D heal, Texture2D shieldTex, Texture2D nuc,
+        int screenHeight, int screenWidth)
+    {
+        int slotSize = 50, pad = 10;
+        int totalW   = inventory.Length * slotSize + (inventory.Length - 1) * pad;
+        int invX     = screenWidth - totalW - 10;
+        int invY     = screenHeight - slotSize - 10;
+
+        for (int i = 0; i < inventory.Length; i++)
+        {
+            Rectangle sr = new(invX + i * (slotSize + pad), invY, slotSize, slotSize);
+            Raylib.DrawRectangleRec(sr, Color.DarkGray);
+            Raylib.DrawRectangleLinesEx(sr, i == selectedSlot ? 3f : 2f, i == selectedSlot ? new Color(0, 220, 220, 255) : Color.Gray);
+            Raylib.DrawText((i + 1).ToString(), (int)sr.X + 4, (int)sr.Y + 2, 16, Color.White);
+
+            if (i == 0) { Raylib.DrawText("*", (int)sr.X + 20, (int)sr.Y + 14, 24, Color.White); continue; }
+            if (inventory[i] != ItemType.None)
+            {
+                Texture2D t = GetItemTexture(inventory[i], heal, shieldTex, nuc);
+                Raylib.DrawTexturePro(t,
+                    new Rectangle(0, 0, t.Width, t.Height),
+                    new Rectangle(sr.X + 9, sr.Y + 9, 32, 32),
+                    Vector2.Zero, 0f, Color.White);
+            }
+        }
+    }
+
+    // Full game reset (both players)
+    static void ResetAll(
+        ref Rectangle player1, ref Rectangle player2,
+        Rectangle p1Start, Rectangle p2Start,
+        ref float yVel1, ref float yVel2,
+        ref bool onGround1, ref bool onGround2,
+        ref bool onLadder1, ref bool onLadder2,
+        ref bool facingRight1, ref bool facingRight2,
+        ref int frame1, ref int frame2,
+        ref float animTimer1, ref float animTimer2,
+        ref int p1Health, ref int p2Health, int maxHealth,
+        ref int p1Shield, ref int p2Shield, int maxShield,
+        ItemType[] inv1, ItemType[] inv2,
+        ref int slot1, ref int slot2,
+        ref float shotTimer1, ref float shotTimer2,
+        List<Bullet> bullets, List<Pickup> pickups,
+        System.Random rng, int virtualWidth, float chestSize)
+    {
+        player1 = p1Start; player2 = p2Start;
+        yVel1 = 0f; yVel2 = 0f;
+        onGround1 = false; onGround2 = false;
+        onLadder1 = false; onLadder2 = false;
+        facingRight1 = true; facingRight2 = true;
+        frame1 = 0; frame2 = 0;
+        animTimer1 = 0f; animTimer2 = 0f;
+        p1Health = maxHealth; p2Health = maxHealth;
+        p1Shield = 0; p2Shield = 0;
+        shotTimer1 = 0f; shotTimer2 = 0f;
+        bullets.Clear(); pickups.Clear();
+        inv1[0] = ItemType.Gun; inv1[1] = ItemType.None; inv1[2] = ItemType.None; slot1 = 0;
+        inv2[0] = ItemType.Gun; inv2[1] = ItemType.None; inv2[2] = ItemType.None; slot2 = 0;
+
+        if (rng.NextDouble() < 0.5)
+        {
+            float x = rng.Next(40, virtualWidth - 40);
+            pickups.Add(new Pickup { Type = ItemType.Chest, Position = new Vector2(x, -chestSize), Velocity = Vector2.Zero });
+        }
     }
 }

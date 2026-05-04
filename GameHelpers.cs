@@ -26,68 +26,6 @@ partial class Program
         Raylib.DrawText(text, textX, textY, 28, Color.White);
     }
 
-    static void ResetGame(
-        ref Rectangle player1,
-        ref Rectangle player2,
-        Rectangle player1Start,
-        Rectangle player2Start,
-        ref float yVel1,
-        ref float yVel2,
-        ref bool onGround1,
-        ref bool onGround2,
-        ref bool onLadder1,
-        ref bool onLadder2,
-        ref bool facingRight1,
-        ref bool facingRight2,
-        ref int currentFrame1,
-        ref int currentFrame2,
-        ref float animTimer1,
-        ref float animTimer2,
-        ref int player1Health,
-        ref int player2Health,
-        int maxHealth,
-        ref int player1Shield,
-        int maxShield,
-        ItemType[] inventory,
-        ref int selectedSlot,
-        ref float shotTimer,
-        List<Bullet> bullets,
-        List<Pickup> pickups,
-        Random rng,
-        int virtualWidth,
-        float chestSize)
-    {
-        player1 = player1Start;
-        player2 = player2Start;
-        yVel1 = 0f; yVel2 = 0f;
-        onGround1 = false; onGround2 = false;
-        onLadder1 = false; onLadder2 = false;
-        facingRight1 = true; facingRight2 = true;
-        currentFrame1 = 0; currentFrame2 = 0;
-        animTimer1 = 0f; animTimer2 = 0f;
-        player1Health = maxHealth; player2Health = maxHealth;
-        player1Shield = 0;
-        shotTimer = 0f;
-        bullets.Clear();
-        pickups.Clear();
-        inventory[0] = ItemType.Gun;
-        inventory[1] = ItemType.None;
-        inventory[2] = ItemType.None;
-        selectedSlot = 0;
-
-        if (rng.NextDouble() < 0.5)
-        {
-            float spawnX = rng.Next(40, virtualWidth - 40);
-            pickups.Add(new Pickup
-            {
-                Type = ItemType.Chest,
-                Position = new Vector2(spawnX, -chestSize),
-                Velocity = Vector2.Zero,
-                IsOpened = false
-            });
-        }
-    }
-
     static Texture2D GetItemTexture(ItemType item, Texture2D heal, Texture2D shield, Texture2D nuc)
     {
         return item switch
@@ -275,11 +213,13 @@ partial class Program
 
     static string GetLocalIp()
     {
+        // Connecting to an external address (no data sent) forces the OS to pick
+        // the correct outgoing interface — avoids returning VirtualBox/VMware adapters.
         try
         {
-            foreach (var ip in Dns.GetHostEntry(Dns.GetHostName()).AddressList)
-                if (ip.AddressFamily == AddressFamily.InterNetwork)
-                    return ip.ToString();
+            using var s = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            s.Connect("8.8.8.8", 80);
+            return ((IPEndPoint)s.LocalEndPoint!).Address.ToString();
         }
         catch { }
         return "??.??.??.??";

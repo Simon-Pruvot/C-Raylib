@@ -42,6 +42,7 @@ partial class Program
         public Vector2 Velocity;
         public float Radius;
         public float Life;
+        public bool IsP2Bullet; // true = hurts P1, false = hurts P2
     }
 
     struct Pickup
